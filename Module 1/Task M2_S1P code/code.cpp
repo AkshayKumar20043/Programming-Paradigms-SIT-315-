@@ -16,7 +16,7 @@ void setup()
 
 void loop()
 { 
-  // You can add your main loop code here if needed
+  // The main loop is empty for interrupt
 }
 
 void startTimer(double frequency){
