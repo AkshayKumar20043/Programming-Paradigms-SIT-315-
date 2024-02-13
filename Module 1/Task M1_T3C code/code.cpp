@@ -1,36 +1,48 @@
 const int motionSensorPin = 3;
-const int temperatureSensorPin = A1;
-const int ledPin = 6;
+const int soilMoistureSensorPin = 2;  
+const int motionLedPin = 6;  // LED for motion sensor
+const int moistureLedPin = 7;  // LED for soil moisture sensor
 
 void setup() {
-  pinMode(ledPin, OUTPUT);
+  pinMode(motionLedPin, OUTPUT);
+  pinMode(moistureLedPin, OUTPUT);
   pinMode(motionSensorPin, INPUT);
+  pinMode(soilMoistureSensorPin, INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(motionSensorPin), NewInter, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(motionSensorPin), motionInterrupt, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(soilMoistureSensorPin), moistureInterrupt, CHANGE);
 
   Serial.begin(9600);
 }
 
 void loop() {
-  // The loop is empty to implement interrupt
+  // The loop is empty to implement interrupts
 }
 
-void NewInter() {
+void motionInterrupt() {
   int motionState = digitalRead(motionSensorPin);
-  int temperatureValue = analogRead(temperatureSensorPin);
-  float voltage = (temperatureValue / 1024.0) * 5.0; // It convert analog reading to voltage
-  float temperatureCelsius = (voltage - 0.5) * 100; // It convert voltage to Celsius
 
   if (motionState == HIGH) {
-    digitalWrite(ledPin, HIGH);
-    Serial.print("The LED is on");
-    Serial.print("Temperature: ");
-    Serial.print(temperatureCelsius);
-    Serial.println(" °C");
+    digitalWrite(motionLedPin, HIGH);
+    Serial.print("Motion Detected! LED is on. ");
     delay(1000);
   } else {
-    digitalWrite(ledPin, LOW);
-    Serial.println("The LED is off");
+    digitalWrite(motionLedPin, LOW);
+    Serial.println("No motion detected. LED is off.");
+    delay(1000);
+  }
+}
+
+void moistureInterrupt() {
+  int moistureState = digitalRead(soilMoistureSensorPin);
+
+  if (moistureState == HIGH) {
+    digitalWrite(moistureLedPin, HIGH);
+    Serial.println("Soil Moisture Detected! Moisture LED is on.");
+    delay(1000);
+  } else {
+    digitalWrite(moistureLedPin, LOW);
+    Serial.println("Soil Moisture Absent. Moisture LED is off.");
     delay(1000);
   }
 }
