@@ -1,94 +1,74 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
-#include <random>
+#include <cstdlib>
+#include <vector>
 
 using namespace std;
+const int numb = 100;
 
-void multiplication_proc(double **matrixA, double **matrixB, double **Result, int length) // This function is used for matrix multiplication of two matrix
+vector<vector<int>> A(numb, vector<int>(numb)); // Matrix A
+vector<vector<int>> B(numb, vector<int>(numb)); // Matrix B
+vector<vector<int>> C(numb, vector<int>(numb)); // Matrix C
+
+void random_mat(vector<vector<int>> &matrix, int size)
 {
-    for (int i = 0; i < length; i++) // Loop for iteration for rows for first matrix
+    for (int i = 0; i < size; i++)
     {
-        for (int j = 0; j < length; j++) // Loop for iteration for columns for second matrix
+        for (int j = 0; j < size; j++)
         {
-            double sum = 0; // Initialize sum for the result matrix element
-            for (int k = 0; k < length; k++) // In this loop, theere is an interation for element first matrix and column of the second matrix 
-            {
-                sum += matrixA[i][k] * matrixB[k][j]; // Formula for multiplication
-            }
-            Result[i][j] = sum; // It is used to store the result 
+            matrix[i][j] = rand() % 10; // here random numbers are generated b/w 0 to 9
         }
     }
 }
 
-void print_matrix(double **matrix, int length) // This function is used to print a matrix
+void multiplication_mat()
 {
-    
-    for (int i = 0; i < length; i++) // Loop for iteration for rows
+    for (int i = 0; i < numb; i++) // algorithm for matrix multiplication algorithm
     {
-        for (int j = 0; j < length; j++) // Loop for iteration for columns
+        for (int j = 0; j < numb; j++)
         {
-            cout << matrix[i][j] << " ";
+            C[i][j] = 0;
+            for (int k = 0; k < numb; k++)
+            {
+                C[i][j] += A[i][k] * B[k][j];
+            }
         }
-        cout << endl; // for next row
     }
 }
 
 int main()
 {
-    int mat_size = 1200; // Initialization of matrix size
+    srand(time(NULL)); // It seeds random number
+    random_mat(A, numb);
+    random_mat(B, numb);
 
-    double **matrixA = new double *[mat_size]; // These are used to allocate memory for matrices
-    double **matrixB = new double *[mat_size];
-    double **result = new double *[mat_size];
-    
-    for (int i = 0; i < mat_size; i++) // it allocate memory for each row in the matrices
-    {
-        matrixA[i] = new double[mat_size];
-        matrixB[i] = new double[mat_size];
-        result[i] = new double[mat_size];
-    }
+    auto start_time = std::chrono::high_resolution_clock::now();
 
-    random_device rd; // Here matrices are initialized with random values
-    mt19937 gen(rd());
-    uniform_real_distribution<> dis(-10, 10);
-   
-    for (int i = 0; i < mat_size; i++)  // This loop iterates over rows and columns of each matrix to assign random values
+    multiplication_mat();
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto time_duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+    ofstream outputFile("output.txt"); // It is used for writing result to output file
+    if (outputFile.is_open())
     {
-        for (int j = 0; j < mat_size; j++)
+        for (int i = 0; i < numb; i++)
         {
-            matrixA[i][j] = dis(gen);
-            matrixB[i][j] = dis(gen);
+            for (int j = 0; j < numb; j++)
+            {
+                outputFile << C[i][j] << " ";
+            }
+            outputFile << endl;
         }
+        outputFile.close();
     }
-
-    auto start = chrono::high_resolution_clock::now(); // It is used to multipliy matrices and for measuring execution time
-    multiplication_proc(matrixA, matrixB, result, mat_size);
-    auto end = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::milliseconds>(end - start);
-    cout << "It takes " << duration.count() << " m/s to execute the program for multiplication" << endl;
-
-    ofstream output("result.txt"); 
-    
-    for (int i = 0; i < mat_size; i++) // This loop iterates over rows and columns to write to the file
+    else
     {
-        for (int j = 0; j < mat_size; j++)
-        {
-            output << result[i][j] << " ";
-        }
-        output << endl;
+        cout << "Error ";
     }
-    output.close();
 
-    for (int i = 0; i < mat_size; i++) // Used to clean the memory
-    {
-        delete[] matrixA[i];
-        delete[] matrixB[i];
-        delete[] result[i];
-    }
-    delete[] matrixA;
-    delete[] matrixB;
-    delete[] result;
+    cout << "The time taken for multiplication of matrix is " << time_duration.count() << " microseconds" << endl;
 
     return 0;
 }
