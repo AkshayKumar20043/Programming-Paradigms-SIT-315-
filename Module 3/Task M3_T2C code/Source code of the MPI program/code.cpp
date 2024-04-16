@@ -1,48 +1,134 @@
-#include <iostream>
-#include <stdlib.h> 
-#include <time.h>  
-#include <mpi.h>  
+#include <stdio.h>
+#include <stdlib.h>
+#include <mpi.h>
+#include <time.h>
 
-#define MAX 1000000 // the size of the array is defined
-
-int data[MAX]; 
-
-int main(int argc, char *argv[])
+void quick_sort(int *array, int left, int right) // This is the function of quick sort
 {
-    int rank, size;
-    MPI_Init(&argc, &argv); // Initialization of MPI
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank); // Get the rank of the current process
-    MPI_Comm_size(MPI_COMM_WORLD, &size); // Get the total number of processes
+    int i, j, pivot, temp;
 
-    srand(time(NULL) + rank); // Seed the random number generator with different values for each process
+    if (left < right) {
+        pivot = left;
+        i = left;
+        j = right;
 
-    int local_size = MAX / size; // Calculate the local size of data for each process
-    int local_data[local_size]; // Declare an array to hold local data for each process
+        while (i < j) // Loop for doing partition
+        {
+            while (array[i] <= array[pivot] && i <= right)
+                i++;
+            while (array[j] > array[pivot])
+                j--;
+            if (i < j) 
+            {
+                temp = array[i];
+                array[i] = array[j];
+                array[j] = temp;
+            }
+        }
 
-    for(int i = 0; i < local_size; i++) {
-        local_data[i] = rand() % 20; 
+        temp = array[pivot]; // Used for placing pivot 
+        array[pivot] = array[j];
+        array[j] = temp;
+
+        quick_sort(array, left, j - 1); // Recursive calls to sort sub-arrays
+        quick_sort(array, j + 1, right);
+    }
+}
+
+int main(int argc, char **argv) 
+{
+    int rank, size, *array, *chunk, a, x, order;
+    MPI_Status status;
+
+    MPI_Init(&argc, &argv); // Initializing the MPI
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (rank == 0) 
+    {
+        printf("no of elements in the array: "); // Used to input array size and its elements``
+        fflush(stdout);
+        scanf("%d", &a);
+
+        array = (int *) malloc(a * sizeof(int));
+        printf("And what are the elements of the array ?: ");
+        fflush(stdout);
+        for (x = 0; x < a; x++)
+            scanf("%d", &array[x]);
+
+        quick_sort(array, 0, a - 1); // This is used for sorting the entire array 
     }
 
-    double start_time = MPI_Wtime(); // Record start time using MPI_Wtime() function
-    long local_sum = 0;
+    MPI_Bcast(&a, 1, MPI_INT, 0, MPI_COMM_WORLD); // It broadcast array size to all processes
 
-    // Calculate the local sum of the local data array for each process
-    for(int i = 0; i < local_size; i++) {
-        local_sum += local_data[i];
+    chunk = (int *) malloc(a / size * sizeof(int));  // It allocates memory for chunk on each process
+
+    MPI_Scatter(array, a / size, MPI_INT, chunk, a / size, MPI_INT, 0, MPI_COMM_WORLD);
+
+    clock_t start_time = clock(); // Here the timing the sorting process will be started
+    quick_sort(chunk, 0, a / size - 1);
+    clock_t end_time = clock();
+
+    double duration = (double)(end_time - start_time) / ((double)CLOCKS_PER_SEC); // Used to calculate the duration of sorting
+
+    if (rank == 0) // It prints the execution time 
+    {
+        printf("Time taken in execution is %f seconds\n", duration);
     }
 
-    long global_sum; // Declare a variable to hold the global sum
+    for (order = 1; order < size; order *= 2) 
+    {
+        if (rank % (2 * order) != 0) 
+        {
+            MPI_Send(chunk, a / size, MPI_INT, rank - order, 0, MPI_COMM_WORLD);
+            break;
+        }
+        int recv_size;
+        if ((rank + order) < size)
+            recv_size = a / size;
+        else
+            recv_size = a - (rank + order) * (a / size);
 
-    // Reduce local sums from all processes to calculate the global sum
-    MPI_Reduce(&local_sum, &global_sum, 1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+        int *other = (int *) malloc(recv_size * sizeof(int)); // It receives the chunk from higher ranked process
+        MPI_Recv(other, recv_size, MPI_INT, rank + order, 0, MPI_COMM_WORLD, &status);
 
-    double end_time = MPI_Wtime(); // Record end time using MPI_Wtime() function
+        // Merge chunks
+        int *temp = (int *) malloc((a / size + recv_size) * sizeof(int));
+        int i = 0, j = 0, k = 0;
+        while (i < a / size && j < recv_size) 
+        {
+            if (chunk[i] < other[j])
+                temp[k++] = chunk[i++];
+            else
+                temp[k++] = other[j++];
+        }
+        while (i < a / size)
+            temp[k++] = chunk[i++];
+        while (j < recv_size)
+            temp[k++] = other[j++];
 
-    if(rank == 0) {
-        std::cout << "The final sum = " << global_sum << std::endl;
-        std::cout << "Execution time = " << end_time - start_time << " seconds" << std::endl;
+        free(other);// Used to free memory and update chunk
+        free(chunk);
+        chunk = temp;
     }
 
-    MPI_Finalize(); // Finalize MPI
+    if (rank == 0) // Gathers the sorted chunks 
+    {
+        array = (int *) malloc(a * sizeof(int));
+    }
+    MPI_Gather(chunk, a / size, MPI_INT, array, a / size, MPI_INT, 0, MPI_COMM_WORLD);
+
+    if (rank == 0)  // Prints the sorted array on rank 0
+    {
+        for (x = 0; x < a; x++) 
+        {
+            printf("%d ", array[x]);
+        }
+        printf("\n");
+        fflush(stdout);
+    }
+
+    // Finalize MPI
+    MPI_Finalize();
     return 0;
 }
